@@ -1,5 +1,7 @@
 ﻿# Claude 启动动画：装到这台电脑（在桌面建「Claude」图标，指向本文件夹里的 ClaudeSplash.exe）
-# 由「安装到这台电脑.bat」调用；挪了文件夹位置，再运行一次就行
+# 由「安装到这台电脑.bat」或 online-install.ps1（一行命令安装）调用；挪了文件夹位置，再运行一次就行
+# -Desktop / -NoPrompt 只是测试用：把图标建到别的文件夹、不问要不要试播
+param([string]$Desktop = [Environment]::GetFolderPath('Desktop'), [switch]$NoPrompt)
 $dir = $PSScriptRoot
 $exe = Join-Path $dir 'ClaudeSplash.exe'
 Write-Host ''
@@ -8,8 +10,15 @@ Write-Host "文件夹：$dir"
 Write-Host ''
 
 if (-not (Test-Path -LiteralPath $exe)) {
-    Write-Host '找不到 ClaudeSplash.exe：请确认这个脚本和 ClaudeSplash.exe 在同一个文件夹里。' -ForegroundColor Red
-    exit 1
+    # exe 不见了多半是被杀毒软件删了：用源代码在这台电脑上重新编译（Windows 自带编译器）
+    Write-Host '没找到 ClaudeSplash.exe（可能被杀毒软件删了），正在用源代码重新编译……' -ForegroundColor Yellow
+    $build = Join-Path $dir 'build.ps1'
+    if (Test-Path -LiteralPath $build) { & $build | Out-Host }
+    if (-not (Test-Path -LiteralPath $exe)) {
+        Write-Host '编译没成功。请确认这个脚本、ClaudeSplash.cs、build.ps1 在同一个文件夹；如果是杀毒软件拦的，把这个文件夹加进它的信任区再运行一次。' -ForegroundColor Red
+        exit 1
+    }
+    Write-Host '      编译好了' -ForegroundColor Green
 }
 if ($dir -like "$([Environment]::GetFolderPath('UserProfile'))\Downloads*") {
     Write-Host '提醒：文件夹现在在「下载」里，以后清理下载会把动画删掉，桌面图标就失效了。' -ForegroundColor Yellow
@@ -32,8 +41,7 @@ Get-ChildItem -LiteralPath $dir -Recurse -File | Unblock-File
 Write-Host '[2/3] 已去掉下载标记' -ForegroundColor Green
 
 # 3. 桌面建「Claude」图标；桌面原来的 Claude 图标先在本文件夹留一份底
-$desktop = [Environment]::GetFolderPath('Desktop')
-$lnk = Join-Path $desktop 'Claude.lnk'
+$lnk = Join-Path $Desktop 'Claude.lnk'
 $sh = New-Object -ComObject WScript.Shell
 if (Test-Path -LiteralPath $lnk) {
     $old = $sh.CreateShortcut($lnk)
@@ -60,5 +68,7 @@ if (Test-Path -LiteralPath $pub) {
 
 Write-Host ''
 Write-Host '装好了！以后双击桌面「Claude」就会先播动画。' -ForegroundColor Cyan
-$ans = Read-Host '现在试播一下动画吗？（不会打开 Claude，播完按任意键关掉）输入 Y 回车试播，直接回车结束'
-if ($ans -match '^[Yy]') { Start-Process -FilePath $exe -ArgumentList '--preview' -WorkingDirectory $dir }
+if (-not $NoPrompt) {
+    $ans = Read-Host '现在试播一下动画吗？（不会打开 Claude，播完按任意键关掉）输入 Y 回车试播，直接回车结束'
+    if ($ans -match '^[Yy]') { Start-Process -FilePath $exe -ArgumentList '--preview' -WorkingDirectory $dir }
+}
